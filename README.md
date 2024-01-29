@@ -86,3 +86,5 @@ Then you can just run `make`.
 
 2011-08-05: v0.1
  * First release
+
+RANDOM CHANGE
