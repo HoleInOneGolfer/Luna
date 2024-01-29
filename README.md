@@ -10,7 +10,7 @@ It can also be used to convert any TI-Nspire problems in XML format to TNS docum
 - Problem conversion: `luna Problem1.xml OUTFILE.tns`
 - Multiple files: `luna Document.xml Problem1.xml [Problem2.xml...] OUTFILE.tns`
 
-If the input is `-`, it reads the file from the standard input.  
+If the input is `-`, it reads the file from the standard input.
 Make sure to encode your Lua or Problem file in UTF-8 if it contains special characters. You can also pack arbitrary files like images into the TNS.
 
 ## Bugs, feedback...
@@ -19,14 +19,14 @@ Please use the GitHub [issue tracker](https://github.com/ndless-nspire/Luna/issu
 
 ## License
 
-Luna is licensed under the Mozilla Public License v1.1.  
-Luna is based on a derived version of MiniZip. See minizip-1.1/MiniZip64_info.txt for more information.  
-Luna includes cryptographic software written by Eric Young (eay@cryptsoft.com), see the DES.\* files for more information.  
+Luna is licensed under the Mozilla Public License v1.1.
+Luna is based on a derived version of MiniZip. See minizip-1.1/MiniZip64_info.txt for more information.
+Luna includes cryptographic software written by Eric Young (eay@cryptsoft.com), see the DES.\* files for more information.
 The JS version uses FileSaver.js, MIT-licensed.
 
 ## Building it yourself
 
-You need the zlib (zlib1g-dev/zlib-devel) development library. On macOS, you can use [brew](http://brew.sh/): `brew install zlib`  
+You need the zlib (zlib1g-dev/zlib-devel) development library. On macOS, you can use [brew](http://brew.sh/): `brew install zlib`
 Then you can just run `make`.
 
 ## History
