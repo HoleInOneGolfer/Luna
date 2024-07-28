@@ -58,15 +58,15 @@ char *utf82unicode(char *in, char *end, unsigned long *c) {
 		return min(end, in + 2);
 	}
 	if ((*in & 0b11110000) == 0b11100000) {
-		*c = (*in & 0b00011111) << 12;
+		*c = (*in & 0b00001111) << 12;
 		if (end > in + 1)
 			*c |= (*(in + 1) & 0b00111111) << 6;
 		if (end > in + 2)
 			*c |= *(in + 2) & 0b00111111;
 		return min(end, in + 3);
 	}
-	if ((*in & 0b111110000) == 0b11110000) {
-		*c = (*in & 0b00011111) << 18;
+	if ((*in & 0b11111000) == 0b11110000) {
+		*c = (*in & 0b00000111) << 18;
 		if (end > in + 1)
 			*c |= (*(in + 1) & 0b00111111) << 12;
 		if (end > in + 2)
@@ -287,7 +287,7 @@ invalid_problem:
 
 // ext must start with "."
 int has_ext(const char *filepath, const char *ext) {
-	return strlen(filepath) >= 5 && !strcasecmp(ext, filepath + strlen(filepath) - 4);
+	return strlen(filepath) > strlen(ext) && !strcasecmp(ext, filepath + strlen(filepath) - strlen(ext));
 }
 
 /* Returns the output buffer, NULL on error. Fills obuf_size.
@@ -479,7 +479,7 @@ void close_tns(const char *outfile_path) {
 }
 
 // returns the deflated size
-long deflate_compressed_xml(void *def_buf, size_t def_size, void *xmlc_buf, size_t xmlc_buf_size) {
+long deflate_compressed_xml(void *def_buf, size_t def_size, const void *xmlc_buf, size_t xmlc_buf_size) {
 	z_stream zstream;
 	zstream.next_in = (Bytef*)xmlc_buf;
 	zstream.next_out = (Bytef*)def_buf;
@@ -524,52 +524,85 @@ int add_default_document_to_tns(const char *tnsfile_path, unsigned tiversion) {
 	return add_processed_file_to_tns("Document.xml", default_processed_document_xml, sizeof(default_processed_document_xml) - 1, tnsfile_path, tiversion);
 }
 
-int add_infile_to_tns(const char *infile_path, const char *tnsfile_path, unsigned tiversion) {
-	size_t xmlc_buf_size;
-	const char *filename = NULL;
-	void *xmlc_buf = read_file_and_xml_compress(infile_path, &xmlc_buf_size, &filename);
-	if (!xmlc_buf)
-		return 1;
-
-	/* As expected by zlib */
-	size_t def_size = (size_t) (xmlc_buf_size + (xmlc_buf_size * 0.1) + 12);
+int add_compressed_xml_to_tns(const char *tnsfile_path, const char *filename, const void *xmlc_buf, size_t xmlc_buf_size, unsigned tiversion) {
 	static const char tien_crypted_header[] =
 		"\x0F\xCE\xD8\xD2\x81\x06\x86\x5B\x99\xDD\xA2\x3D\xD9\xE9\x4B\xD4\x31\xBB\x50\xB6"
 		"\x4D\xB3\x29\x24\x70\x60\x49\x38\x1C\x30\xF8\x99\x00\x4B\x92\x64\xE4\x58\xE6\xBC";
+
+	/* As expected by zlib */
+	size_t def_size = (size_t) (xmlc_buf_size + (xmlc_buf_size * 0.1) + 12);
 	size_t header_size = sizeof(tien_crypted_header) - 1;
 	uint8_t *header_and_deflated_buf = malloc(def_size + header_size);
 	if (!header_and_deflated_buf) {
 		puts("can't malloc header_and_deflated_buf");
-add_infile_err:
+add_compressed_xml_err:
 		free(header_and_deflated_buf);
 		return 1;
 	}
-	if (has_ext(filename, ".xml")) { // Only .xml files are encrypted
-		uint8_t *def_buf = header_and_deflated_buf + header_size;
-		long deflated_size = deflate_compressed_xml(def_buf, def_size, xmlc_buf, xmlc_buf_size);
-		free(xmlc_buf);
-		if (doccrypt(def_buf, deflated_size))
-			goto add_infile_err;
-		memcpy(header_and_deflated_buf, tien_crypted_header, header_size);
-		if (add_processed_file_to_tns(filename, header_and_deflated_buf, header_size + deflated_size, tnsfile_path, tiversion))
-			goto add_infile_err;
-	}
-	else { // don't crypt, don't deflate: will be deflated by minizip
-		if (add_processed_file_to_tns(filename, xmlc_buf, xmlc_buf_size, tnsfile_path, tiversion))
-			goto add_infile_err;
-	}
+
+	uint8_t *def_buf = header_and_deflated_buf + header_size;
+	long deflated_size = deflate_compressed_xml(def_buf, def_size, xmlc_buf, xmlc_buf_size);
+	if (doccrypt(def_buf, deflated_size))
+		goto add_compressed_xml_err;
+	memcpy(header_and_deflated_buf, tien_crypted_header, header_size);
+	if (add_processed_file_to_tns(filename, header_and_deflated_buf, header_size + deflated_size, tnsfile_path, tiversion))
+		goto add_compressed_xml_err;
 	free(header_and_deflated_buf);
 	return 0;
+}
+
+int add_infile_to_tns(const char *infile_path, const char *tnsfile_path, unsigned tiversion) {
+	size_t xmlc_buf_size;
+	const char *filename = NULL;
+	void *xmlc_buf = read_file_and_xml_compress(infile_path, &xmlc_buf_size, &filename);
+	int ret;
+	if (!xmlc_buf)
+		return 1;
+
+	if (has_ext(filename, ".xml")) // Only .xml files are encrypted
+		ret = add_compressed_xml_to_tns(tnsfile_path, filename, xmlc_buf, xmlc_buf_size, tiversion);
+	else // don't crypt, don't deflate: will be deflated by minizip
+		ret = add_processed_file_to_tns(filename, xmlc_buf, xmlc_buf_size, tnsfile_path, tiversion);
+	free(xmlc_buf);
+	return ret;
+}
+
+// Add XML that refers to the Python script. The Python script itself is added separately.
+int add_python_xml_to_tns(const char *python_path, const char *tnsfile_path, unsigned tiversion) {
+	static const char py_header[] =
+		"TIXC0100-1.0?><prob xmlns=\"urn:TI.Problem\" ver=\"1.0\" pbname=\"\">"
+		"<sym>\x0E\x01<card clay=\"0\" h1=\"10000\" h2=\"10000\" w1=\"10000\" "
+		"w2=\"10000\"><isDummyCard>0\x0E\x03<flag>0\x0E\x04<wdgt xmlns:py=\"urn:"
+		"TI.PythonEditor\" type=\"TI.PythonEditor\" ver=\"1.0\"><py:data><py:name>";
+	static const char py_footer[] =
+		"\x0E\x07<py:dirf>-10000000\x0E\x08\x0E\x06<py:mFlags>1024\x0E\x09"
+		"<py:value>10\x0E\x0A\x0E\x05\x0E\x02\x0E\x00";
+
+	const char *filename = gnu_basename(python_path);
+	size_t filename_len = strlen(filename);
+	if (filename_len > 240) {
+		puts("Python script filenames limited to 240 characters");
+		return 1;
+	}
+
+	// Filename goes sandwiched between the header and footer
+	char xmlc_buf[(sizeof(py_header) - 1) + 240 + (sizeof(py_footer) - 1)];
+	snprintf(xmlc_buf, sizeof(xmlc_buf), "%s%s%s", py_header, filename, py_footer);
+
+	size_t total_size = (sizeof(py_header) - 1) + filename_len + (sizeof(py_footer) - 1);
+	return add_compressed_xml_to_tns(tnsfile_path, "Problem1.xml", xmlc_buf, total_size, tiversion);
 }
 
 int main(int argc, char *argv[]) {
 	if (argc < 3) {
 		puts("Luna v" LUNA_VER " usage:\n"
 				 "  luna [INFILE.lua|-] [OUTFILE.tns]\n"
+				 "  luna [INFILE.py]* [OUTFILE.tns]\n"
 				 "  luna [Problem1.xml|Document.xml|ABCD.BMP]* [OUTFILE.tns]\n"
-				 "Converts a Lua script or XML problems/documents/resources to a TNS document.\n"
+				 "Converts a Lua script, Python scripts, or XML problems/documents/resources to a TNS document.\n"
 				 "If the input file '-', reads it as Lua from the standard input.\n"
-				 "A default Document.xml will be generated if not specified.\n"
+				 "For Python, the first script will be the one that shows when the TNS document is opened.\n"
+				 "A default Document.xml will be generated if not specified."
 		);
 		return 0;
 	}
@@ -603,6 +636,8 @@ int main(int argc, char *argv[]) {
 
 	// Then add all the other files
 	int is_converting_lua = 0;
+	int added_python_xml = 0;
+	int ret;
 	for (int i = 1; i <= argc - 2; i++) { // infiles: the args except the last one
 		if (!strcmp("Document.xml", gnu_basename(argv[i])))
 			continue;
@@ -614,7 +649,12 @@ int main(int argc, char *argv[]) {
 			}
 			is_converting_lua = 1;
 		}
-		int ret = add_infile_to_tns(argv[i], outfile_path, tiversion);
+		if (!added_python_xml && has_ext(argv[i], ".py")) { // Add XML for just the first Python file
+			ret = add_python_xml_to_tns(argv[i], outfile_path, tiversion);
+			if (ret) return ret;
+			added_python_xml = 1;
+		}
+		ret = add_infile_to_tns(argv[i], outfile_path, tiversion);
 		if (ret) return ret;
 	}
 

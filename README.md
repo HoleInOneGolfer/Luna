@@ -1,7 +1,8 @@
 Luna 2.1
 ========
 
-Luna is a portable command-line converter of Lua programs to TNS TI-Nspire documents, compatible with OS 3.0.2 and later.
+Luna is a portable command-line converter of Lua and Python scripts to TNS TI-Nspire documents.  
+Lua scripts require OS 3.0.2 or later, and Python scripts require CX II OS 5.2 or later.
 
 It can also be used to convert any TI-Nspire problems in XML format to TNS documents.
 
@@ -10,9 +11,11 @@ It can also be used to convert any TI-Nspire problems in XML format to TNS docum
 * Lua program conversion:    `luna INFILE.lua OUTFILE.tns`
 * Problem conversion:        `luna Problem1.xml OUTFILE.tns`
 * Multiple files:            `luna Document.xml Problem1.xml [Problem2.xml...] OUTFILE.tns`
+* Python conversion:         `luna InFile1.py [InFile2.py...] OUTFILE.tns`
 
 If the input is `-`, it reads the file from the standard input.  
-Make sure to encode your Lua or Problem file in UTF-8 if it contains special characters. You can also pack arbitrary files like images into the TNS.
+Make sure to encode your Lua or Problem file in UTF-8 if it contains special characters. You can also pack arbitrary files like images into the TNS.  
+For Python, the first script will be the one that shows when the TNS document is opened.
 
 ## Bugs, feedback...
 
@@ -22,8 +25,7 @@ Please use the GitHub [issue tracker](https://github.com/ndless-nspire/Luna/issu
 
 Luna is licensed under the Mozilla Public License v1.1.  
 Luna is based on a derived version of MiniZip. See minizip-1.1/MiniZip64_info.txt for more information.  
-Luna includes cryptographic software written by Eric Young (eay@cryptsoft.com), see the DES.* files for more information.  
-The JS version uses FileSaver.js, MIT-licensed.
+Luna includes cryptographic software written by Eric Young (eay@cryptsoft.com), see the DES.* files for more information.
 
 ## Building it yourself
 
